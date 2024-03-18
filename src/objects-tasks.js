@@ -388,33 +388,134 @@ function group(array, keySelector, valueSelector) {
  *  For more examples see unit tests.
  */
 
+class Selector {
+  constructor(value, selType) {
+    this.selector = [{ value, selType }];
+  }
+
+  add(value, selType) {
+    this.selector.push({ value, selType });
+    this.checkSortOrder();
+    return this;
+  }
+
+  checkSortOrder() {
+    const selectorType = {
+      element: 1,
+      id: 2,
+      class: 3,
+      attr: 4,
+      pseudoClass: 5,
+      pseudoElement: 6,
+      combine: 7,
+    };
+
+    for (let i = 1; i < this.selector.length; i += 1) {
+      if (
+        selectorType[this.selector[i - 1].selType] >
+        selectorType[this.selector[i].selType]
+      ) {
+        throw new Error(
+          'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+        );
+      }
+    }
+  }
+
+  stringify() {
+    const selArr = this.selector.map((item) => item.value);
+    return selArr.join('');
+  }
+}
+
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  element(value) {
+    function havElement(sel) {
+      return !sel.every((item) => item.selType !== 'element');
+    }
+
+    if (this.selector) {
+      if (havElement(this.selector)) {
+        throw new Error(
+          'Element, id and pseudo-element should not occur more then one time inside the selector'
+        );
+      }
+      return this.add(value, 'element');
+    }
+    const selector = new Selector(value, 'element');
+    return Object.assign(selector, this);
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
+  id(value) {
+    function havID(sel) {
+      return !sel.every((item) => item.selType !== 'id');
+    }
+
+    if (this.selector) {
+      if (havID(this.selector)) {
+        throw new Error(
+          'Element, id and pseudo-element should not occur more then one time inside the selector'
+        );
+      }
+      return this.add(`#${value}`, 'id');
+    }
+    const selector = new Selector(`#${value}`, 'id');
+    return Object.assign(selector, this);
   },
 
-  class(/* value */) {
-    throw new Error('Not implemented');
+  class(value) {
+    if (this.selector) {
+      return this.add(`.${value}`, 'class');
+    }
+    const selector = new Selector(`.${value}`, 'class');
+    return Object.assign(selector, this);
   },
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
+  attr(value) {
+    if (this.selector) {
+      return this.add(`[${value}]`, 'attr');
+    }
+    const selector = new Selector(`[${value}]`, 'attr');
+    return Object.assign(selector, this);
   },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
+  pseudoClass(value) {
+    if (this.selector) {
+      return this.add(`:${value}`, 'pseudoClass');
+    }
+    const selector = new Selector(`:${value}`, 'pseudoClass');
+    return Object.assign(selector, this);
   },
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+  pseudoElement(value) {
+    function havPseudoElement(sel) {
+      return !sel.every((item) => item.selType !== 'pseudoElement');
+    }
+
+    if (this.selector) {
+      if (havPseudoElement(this.selector)) {
+        throw new Error(
+          'Element, id and pseudo-element should not occur more then one time inside the selector'
+        );
+      }
+      return this.add(`::${value}`, 'pseudoElement');
+    }
+    const selector = new Selector(`::${value}`, 'pseudoElement');
+    return Object.assign(selector, this);
   },
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  combine(selector1, combinator, selector2) {
+    if (this.selector) {
+      return this.add(
+        `${selector1.stringify()} ${combinator} ${selector2.stringify()}`,
+        'combine'
+      );
+    }
+    const selector = new Selector(
+      `${selector1.stringify()} ${combinator} ${selector2.stringify()}`,
+      'combine'
+    );
+    return Object.assign(selector, this);
   },
 };
 
